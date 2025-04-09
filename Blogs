@@ -1,1 +1,5 @@
+To smote or not to smote https://arxiv.org/abs/2201.08528  SMOTE can improve the performance of some weak learners. 
+Dealing with imbalanced Data: Use strong GBMs, adjust the probability threshold, use more than 1 metric, explore the result of your data manipulation, check the calibration
+
+
 
