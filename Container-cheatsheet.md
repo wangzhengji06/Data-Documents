@@ -207,3 +207,210 @@ You can create a container based on prebuilt image, copy the source code and ins
    8.  So, different containers within different network, you will have to connect using local host ports (localhost for container means container itself!!!!!). But, within the same containers, it is perfectly fine to just use the inside port. If it is in the same network, there is dns so you can directly call other container
    9. `docker compose up -d` can modify the running container. It is very beautiful...
 
+
+## Podman
+
+### System information
+`podman system info` to see the server information etc  
+`podman system df` to see images, containers and local volumes situation
+
+#### Try to pull a image and run the container
+`podman pull docker.io/library/httpd:latest` to pull the image of httpd from docker.io  
+`podman run -d -p 9000:80 docker.io/library/httpd:latest` This is basically the same alias as docker, running `-d` for the back, `-p` for port projection from 80 inside container to 9000 on localhost.    
+`podman ps` to see the container  
+If you open the browser to `localhost:9000`, you will see it works 
+
+#### Try to stop and delete the container
+`podman ps` to check the container id  
+`podman stop <id>` to stop the running cointainer. 
+`podman rm <id>` to remove the container  
+`podman image ls` to check the current installed image  
+`podman rmi <iid>` to remove the image installed  
+
+### Working with Images with Podman
+`podman pull <registry_name>/<repo_name>/<image_name>:tag` to download the image  
+`podman images` to list all the images  
+`podman tag <source_images> <tag_images>` to add an additional tag  
+`podman history <image_name>` to show the history
+`podman inspect <image_name>` to display detailed info of an image  
+`podman rmi <image_Name>` to simply remove a image 
+
+#### Something you need to know
+`podman search <image_name>` to search for the potential image  
+`sudo nano /etc/containers/registries.conf` and change the default io you are pulling from. I added docker.io and quad.io  
+`podman search <image_name> --list-tags --limit=200` To list the images with tags, and limit the search number to be 200  
+ `podman image prune -a` will remove all the images if container is not being used. 
+
+### Working with Containers with Podman
+`podman run <image_name>` to run a image    
+`podman ps -a` to list all containers  
+`podman exec <container_name> [ARG]` to execute the container with certain options  
+`podman rename <old> <new>` to rename a container  
+`podman logs <container_name>` to view the logs of a container
+`podman stop <container_name>` to stop a container  
+`podman start <container_name>` to start a container
+`podman rm <container_name>` to remove a container
+
+#### Something you need to know
+`ctrl + c` would also stop the container  
+`--name=<name> -d` is pretty useful  
+`podman exec -it <container_name> <command>` to execute the command inside that container  
+`poman kill <container>` to `podman stop` and `podman rm` in one command
+`podman inspect <container_name>` to insepect the detail of the container. This is like insepcting a image.  
+`podman container prune ` to get rid of all the containers.  
+
+### Building Image with Containerfile
+- Containerfile instructions are executed sequentially
+- Each instruction translates to an image layer
+
+`podman build -t <image_name>`  to build the image based on containerfile  
+
+#### Some important command
+`FROM ` tells the build process which image to use initially  
+`LABEL` attach metadata to our image  
+`WORKDIR` to set the working directory  
+`ENV` to set an environment variable
+`ARG VS ENV` Both ARG and ENV define variables in a Containerfile  
+`EXPOSE` which network port the container will listen on at runtime  
+`CMD` to specify the command that should run when the container starts
+ 
+#### Run the containerfile you just created
+`podman run -d -p 8080:80 --name=thinknyxcon` Do I need to add anything?
+
+
+### Networking in Podman
+Root and rootless user has different mode for managing networks. Apparently most cases I am not the root user. 
+
+#### Some command
+`podman network ls` to list all the networks  
+`podman network create <network_name>` to create a network  
+`podman network inspect <network_name>` to dispaly info  
+`podman network rm <network_name>` to remove a network  
+`podman network prune` to remove all unused networks  
+
+
+#### Root network
+`sudo -i` I am the root  
+``podman network create podman1` I create a network called podman1  
+`podman run -d --name=xxx -p 8085:80 --net=xxx httpd:latest` to create a httpd inside a container  
+You can create a second container, and you will find that the second container can curl the info of the first container.  `curl test1:80`
+
+
+#### Rootless container network
+Surprise Surprise, rootless network works just the same....
+
+### Volumes in Podman
+Adding data to the image is never an ideal method.  
+Two workarounds:
+- Named Volumes: Independent of container lifecycle
+- Bind mounts: No increase in the size of the image
+
+
+#### Volumes in Podman
+It will create volume on localhost
+- Named Volumes: `podman run -d --name=xxx -p xx:xx --mount type=colume, src=<volume data>, target = /<container location> httpd:latest`
+- Bind Mounts: `podman run -d --name=xxx -p xx:xx --mount type=bind, src=<host location>, target = /<container location> httpd:latest`
+- Anoynous volume: 
+
+
+#### Volumes Management
+`podman volume <sub-command> [options]`  
+`podman volume --help`  
+`poman volume ls`
+`podman volume create`
+`podman volume insepect`
+`podman container run --mount type=volume, src=<volume_name>, target=<container_mount_path> <image_name>` to mount a named speace
+
+#### Named Space
+`podman volume create thinknyxvol` to create a named space  
+`ls /home/b-zhengjiawang/.local/share/containers/storage/volumes/thinknyxvol/_data` And voila you found the space you created  
+`podman volume inspect thinknyxvol` can show you the exact location of that volume  
+Notice that root volume and the rootless volume is not the same as their file locations are different. 
+
+#### Named Volumes
+`podman run -d --name=thinknyxcon -p 8081:80 --mount type=volume,src=thinknyxvol,target=/usr/local/apache2/htdocs httpd:latest`  
+
+
+#### Bind Mounts
+`podman run -d --name=thinknyxcon -p 8082:80 --mount type=bind,src=/data,target=/usr/local/apache2/htdocs httpd:latest`
+
+#### When to use bind and when to use named space?
+![alt text](https://i.sstatic.net/PmcBY.png)
+Answer: Either is okay..... Even when you use named space, it is still the same thing.
+
+
+
+### Containerize an app - example
+Containerfile 1
+```
+FROM ubuntu:24.04
+
+RUN apt-get update
+
+RUN apt-get install -y python3 python3-pip python3-django python3-dotenv
+RUN apt-get install -y python3-django-allauth python3-psycopg2
+
+WORKDIR /app
+
+COPY . /app
+
+EXPOSE 8000
+
+ENV PGHOST=postgres
+ENV PGPORT=5432
+ENV PGDATABASE=postgres
+ENV PGUSER=postgres
+ENV PGPASSWORD=postgres
+
+CMD ["sh", "startup.sh"]
+```
+
+#### Multi-stage build
+```
+# Stage 1 - Build Runtime
+FROM ubuntu:24.04 AS buildstage
+
+RUN apt-get update
+
+RUN apt-get install -y python3 python3-pip python3-django python3-dotenv
+RUN apt-get install -y python3-django-allauth python3-psycopg2
+
+WORKDIR /app
+
+# Stage 2 - Final Stage
+FROM buildstage AS finalstage
+
+COPY . /app
+
+EXPOSE 8000
+
+ENV PGHOST=postgres
+ENV PGPORT=5432
+ENV PGDATABASE=postgres
+ENV PGUSER=postgres
+ENV PGPASSWORD=postgres
+
+CMD ["sh", "startup.sh"]
+
+
+```
+
+#### Real example of App deployment
+`podman run -d --name=postgres --net=lzabry -e POSTGRES_PASSWORD=postgres postgres:15.7  `
+
+`podman run -d -p 8000:8000 --name=nyxacademycon --net=lzabry docker.io/deepthian/nyxacademy:2.0`
+
+
+### Pod
+#### Pod management CLI
+`poman pod create` to create a pod
+`podman pod ps` list a pod
+`podman run -d --name <container_name> --pod <pod_name> <image_name>:tag` to create a container inside a pod
+`podman ps -a --pod` to list all containers associated with a pod
+`podman pod inspect <pod_name>` to inspect a pod
+`podman pod start/stop <pod_name>` to start or stop a pod
+`podman pod rm <pod_name>` to remove a pod
+
+#### The real deal: how to make two containers to listen on the same port without conflict
+
+Answer: Use **share**
